@@ -1,0 +1,24 @@
+# LLM + Embeddings
+langchain>=0.3.0
+langchain-text-splitters>=0.3.0
+langchain-google-genai>=2.0.0
+langchain-community>=0.3.0
+google-generativeai>=0.8.0
+
+# Embeddings locales (sin rate limits)
+sentence-transformers>=3.0.0
+langchain-huggingface>=0.1.0
+
+# Vector store
+chromadb>=0.5.0
+
+# Agent framework
+langgraph>=0.2.0
+
+# PDF processing
+pypdf>=4.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+ipywidgets>=8.0.0
+notebook>=7.0.0
