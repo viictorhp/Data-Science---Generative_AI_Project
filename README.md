@@ -4,22 +4,7 @@ Asistente de inteligencia artificial capaz de responder preguntas sobre la indus
 
 ---
 
-## Índice
-
-1. [Dominio elegido](#1-dominio-elegido)
-2. [Stack tecnológico](#2-stack-tecnológico)
-3. [Estructura del proyecto](#3-estructura-del-proyecto)
-4. [Arquitectura del agente](#4-arquitectura-del-agente)
-5. [System Prompt — diseño y justificación](#5-system-prompt--diseño-y-justificación)
-6. [Decisiones técnicas de la pipeline RAG](#6-decisiones-técnicas-de-la-pipeline-rag)
-7. [Memoria de conversación](#7-memoria-de-conversación)
-8. [Interfaz Streamlit](#8-interfaz-streamlit)
-9. [Instalación y ejecución](#9-instalación-y-ejecución)
-10. [Requisitos y dependencias](#10-requisitos-y-dependencias)
-
----
-
-## 1. Dominio elegido
+## Dominio elegido
 
 **Industria textil y moda en España** — sector económico de gran relevancia que combina análisis económico, sostenibilidad, comercio exterior y estrategia empresarial. La elección responde a la disponibilidad de fuentes documentales heterogéneas y complementarias que permiten formular preguntas que requieren síntesis entre documentos, lo que ejercita al máximo el pipeline RAG.
 
@@ -33,50 +18,11 @@ Asistente de inteligencia artificial capaz de responder preguntas sobre la indus
 | `circularidad_textil.pdf` | Economía circular aplicada al textil: modelos, iniciativas y regulación europea | ~50 |
 | `presentaciones_sectoriales_textil.pdf` | Estadísticas y evolución del tejido empresarial textil | ~40 |
 
-> Total: más de 350 páginas indexadas, muy por encima del mínimo exigido de ~20 páginas.
+> Total: casi 400 páginas indexadas
 
 ---
 
-## 2. Stack tecnológico
-
-| Componente | Tecnología |
-|------------|------------|
-| LLM | Google Gemini 2.5 Flash Lite (`gemini-2.5-flash-lite`) |
-| Embeddings | Google Gemini Embeddings (`models/text-embedding-004`) |
-| Base de conocimiento vectorial | ChromaDB (persistido localmente en `chroma_db/`) |
-| Framework de agente | LangGraph + LangChain |
-| Memoria de conversación | `MemorySaver` con `thread_id` |
-| Carga de documentos | PyPDFLoader (LangChain Community) |
-| Interfaz notebook | Jupyter Notebook |
-| Interfaz web (bonus) | Streamlit |
-
----
-
-## 3. Estructura del proyecto
-
-```
-gemini_agent/
-├── app.py                          # Interfaz web Streamlit
-├── requirements.txt                # Dependencias Python
-├── .env                            # API key (no subir al repo)
-├── .gitignore
-├── README.md
-├── CLAUDE.md
-├── docs/                           # Documentos fuente de la base de conocimiento
-│   ├── informe-economico-de-la-moda-en-espana-2025.pdf
-│   ├── comercio_textil_2024.pdf
-│   ├── memoria_anual_inditex_2025.pdf
-│   ├── circularidad_textil.pdf
-│   └── presentaciones_sectoriales_textil.pdf
-├── notebooks/
-│   ├── agente_textil.ipynb         # Notebook principal — entregable
-│   └── Untitled12.ipynb            # Experimentos de LangGraph (no entregable)
-└── chroma_db/                      # Vector store persistido (generado al ejecutar el notebook)
-```
-
----
-
-## 4. Arquitectura del agente
+## Arquitectura del agente
 
 El agente se construye como un grafo de estados en LangGraph con tres nodos secuenciales:
 
@@ -110,18 +56,9 @@ Entrada: system prompt + contexto RAG + historial de mensajes
 Salida:  respuesta del agente
 ```
 
-### Estado del grafo
-
-```python
-class EstadoAgente(TypedDict):
-    mensajes:          Annotated[list[BaseMessage], add_messages]  # historial acumulativo
-    contexto:          str    # chunks recuperados de ChromaDB
-    query_reformulada: str    # pregunta expandida para el retriever
-```
-
 ---
 
-## 5. System Prompt — diseño y justificación
+## System Prompt — diseño y justificación
 
 ```
 Eres un analista experto en la industria textil y moda en España.
@@ -151,17 +88,9 @@ Reglas:
 
 ---
 
-## 6. Decisiones técnicas de la pipeline RAG
+## Decisiones técnicas de la pipeline RAG
 
 ### Chunking
-
-```python
-RecursiveCharacterTextSplitter(
-    chunk_size=1000,
-    chunk_overlap=200,
-    separators=["\n\n", "\n", ".", " ", ""],
-)
-```
 
 - **`chunk_size=1000`**: Tamaño suficiente para que cada fragmento contenga una idea completa. Con 500 caracteres (tamaño inicial probado) varios fragmentos quedaban cortados a mitad de una estadística o tabla, lo que degradaba la calidad de las respuestas.
 - **`chunk_overlap=200`**: Solapa del 20% para evitar que conceptos que cruzan el límite de un chunk se pierdan al recuperar.
@@ -173,46 +102,20 @@ Se usan los embeddings nativos de Google Gemini en lugar de modelos locales de H
 
 ### Retriever MMR
 
-```python
-retriever = vectorstore.as_retriever(
-    search_type="mmr",
-    search_kwargs={"k": 6, "fetch_k": 20, "lambda_mult": 0.7},
-)
-```
-
 - **MMR**: Recupera candidatos por similitud (`fetch_k=20`) y luego selecciona los `k=6` que maximizan diversidad además de relevancia.
 - **`lambda_mult=0.7`**: Peso 70% relevancia / 30% diversidad. Evita recuperar múltiples fragmentos del mismo párrafo del mismo documento.
 
 ---
 
-## 7. Memoria de conversación
+## Memoria de conversación
 
-La memoria se implementa con `MemorySaver` de LangGraph, que persiste el estado del grafo entre invocaciones usando un `thread_id`:
-
-```python
-memoria = MemorySaver()
-agente  = grafo.compile(checkpointer=memoria)
-
-config  = {"configurable": {"thread_id": "sesion-01"}}
-agente.invoke({"mensajes": [HumanMessage(content=pregunta)]}, config=config)
-```
+La memoria se implementa con `MemorySaver` de LangGraph, que persiste el estado del grafo entre invocaciones usando un `thread_id`.
 
 Cada llamada al agente con el mismo `thread_id` recibe el historial completo de mensajes anteriores. El campo `mensajes` del estado usa `add_messages` como reducer, que acumula los mensajes en lugar de sobreescribirlos.
 
-**Demostración de memoria** (Ejemplo 4 del notebook):
+**Demostración de memoria** (Ejemplo 4 del notebook).
 
-```
-Pregunta 2: "¿Cuál es la estrategia medioambiental de Inditex?"
-Pregunta 3: "¿Qué es la economía circular aplicada al sector textil?"
-Pregunta 4: "¿Y cómo se compara esa estrategia de Inditex con los principios
-            de economía circular que acabas de explicar?"
-```
-
-El agente responde a la pregunta 4 relacionando correctamente los contenidos de los dos turnos anteriores sin necesidad de que el usuario los repita.
-
----
-
-## 8. Interfaz Streamlit
+## Interfaz Streamlit
 
 La interfaz web (`app.py`) reutiliza exactamente el mismo grafo LangGraph del notebook. Se añade únicamente la capa de UI por encima.
 
@@ -243,88 +146,3 @@ Bajo cada respuesta el usuario puede desplegar:
 | ♻️ Recargar agente | Llama a `st.cache_resource.clear()` y reconstruye el agente desde cero. Útil si se regenera ChromaDB. |
 
 **Rendimiento**: `@st.cache_resource` garantiza que el agente y ChromaDB se cargan una única vez por sesión de servidor, sin reconstruirse en cada rerun de Streamlit.
-
----
-
-## 9. Instalación y ejecución
-
-### Requisitos previos
-
-- Python 3.10 o superior
-- API key de Google Gemini — obtenible en [Google AI Studio](https://aistudio.google.com/app/apikey)
-
-### Paso 1 — Instalación
-
-```bash
-# Clonar el repositorio
-git clone <url-del-repo>
-cd gemini_agent
-
-# Crear entorno virtual (recomendado)
-python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS / Linux
-
-# Instalar dependencias
-pip install -r requirements.txt
-```
-
-### Paso 2 — Configurar la API key
-
-Crear el fichero `.env` en la raíz del proyecto:
-
-```
-GEMINI_API_KEY=tu_api_key_aqui
-```
-
-> La API key **nunca** debe incluirse en el código ni subirse al repositorio. Está ignorada por `.gitignore`.
-
-### Paso 3 — Ejecutar el notebook (obligatorio)
-
-```bash
-jupyter notebook notebooks/agente_textil.ipynb
-```
-
-Ejecutar todas las celdas en orden. La primera ejecución indexa los 5 documentos PDF en ChromaDB con Gemini Embeddings. El directorio `chroma_db/` se crea automáticamente.
-
-> Tiempo estimado de primera indexación: 2-4 minutos en función de la velocidad de la API.
-
-### Paso 4 — Interfaz Streamlit (opcional / bonus)
-
-> Requiere haber completado el Paso 3 para que `chroma_db/` exista.
-
-```bash
-streamlit run app.py
-```
-
-La app estará disponible en `http://localhost:8501`.
-
----
-
-## 10. Requisitos y dependencias
-
-```
-# LLM + Embeddings (Google Gemini)
-langchain>=0.3.0
-langchain-text-splitters>=0.3.0
-langchain-google-genai>=2.0.0
-langchain-community>=0.3.0
-google-generativeai>=0.8.0
-
-# Base de conocimiento vectorial
-chromadb>=0.5.0
-
-# Framework de agente
-langgraph>=0.2.0
-
-# Procesamiento de PDFs
-pypdf>=4.0.0
-
-# Utilidades
-python-dotenv>=1.0.0
-ipywidgets>=8.0.0
-notebook>=7.0.0
-
-# Interfaz web (bonus)
-streamlit>=1.35.0
-```
