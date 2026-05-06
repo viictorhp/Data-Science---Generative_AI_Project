@@ -1,28 +1,29 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Project Overview
 
-Early-stage research project on the textile and fashion industry in Spain. Currently consists of PDF documents and placeholder config files; no source code exists yet.
+Agente experto en la industria textil y moda en España. Implementa RAG con Google Gemini Embeddings, ChromaDB y LangGraph.
 
-## Current State
+## Structure
 
-- `.env` — empty, intended for environment variables (API keys, etc.)
-- `requirements.txt` — empty, intended for Python dependencies
-- `docs/` — five PDF source documents:
-  - `informe-economico-de-la-moda-en-espana-2025.pdf` — economic report on Spanish fashion (2025)
-  - `presentaciones_sectoriales_textil.pdf` — sector presentations on textiles
-  - `memoria_anual_inditex_2025.pdf` — Inditex annual report (2025)
-  - `circularidad_textil.pdf` — circular economy in textiles
-  - `comercio_textil_2024.pdf` — textile trade data (2024)
+- `notebooks/agente_textil.ipynb` — notebook principal con el agente completo
+- `notebooks/Untitled12.ipynb` — experimentos de aprendizaje de LangGraph (no es entregable)
+- `docs/` — 5 PDFs fuente de la base de conocimiento
+- `chroma_db/` — vector store persistido (se regenera al ejecutar el notebook)
+- `.env` — API key de Gemini (no commitear)
+- `requirements.txt` — dependencias Python
 
-## Development Setup
+## Tech Stack
 
-Once Python dependencies are added to `requirements.txt`:
+- LLM + Embeddings: `langchain-google-genai` (Gemini 2.5 Flash Lite + text-embedding-004)
+- Vector store: ChromaDB via `langchain-community`
+- Agent framework: LangGraph con MemorySaver
+- PDF loading: PyPDFLoader
+
+## Running
 
 ```bash
 pip install -r requirements.txt
+# Añadir GEMINI_API_KEY al .env
+jupyter notebook notebooks/agente_textil.ipynb
 ```
-
-Environment variables go in `.env` and should be loaded via `python-dotenv` or similar.
