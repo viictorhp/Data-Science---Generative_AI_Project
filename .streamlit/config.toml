@@ -1,0 +1,4 @@
+[server]
+# Desactiva el inspector de módulos del hot-reload para evitar los warnings
+# de torchvision que genera transformers al arrancar la app.
+fileWatcherType = "none"

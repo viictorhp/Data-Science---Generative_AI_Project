@@ -8,19 +8,28 @@ from typing import Annotated
 from typing_extensions import TypedDict
 
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_community.vectorstores import Chroma
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 
+
+# Los modelos E5 requieren prefijos distintos para indexación y búsqueda
+class E5MultilingualEmbeddings(HuggingFaceEmbeddings):
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return super().embed_documents(["passage: " + t for t in texts])
+    def embed_query(self, text: str) -> list[float]:
+        return super().embed_query("query: " + text)
+
 # ── Configuración ─────────────────────────────────────────────────────────────
 load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 CHROMA_DIR = str(Path(__file__).parent / "chroma_db")
 COLLECTION_NAME = "textil_moda_espana"
 LLM_MODEL = "gemini-2.5-flash-lite"
-EMBEDDING_MODEL = "models/text-embedding-004"
+EMBEDDING_MODEL = "intfloat/multilingual-e5-base"
 
 SYSTEM_PROMPT = """Eres un analista experto en la industria textil y moda en España.
 
@@ -47,7 +56,6 @@ DOCS_INFO = [
     ("📊", "Informe económico de la moda 2025"),
     ("🌍", "Comercio textil 2024"),
     ("🏢", "Memoria anual Inditex 2025"),
-    ("♻️", "Circularidad textil"),
     ("📋", "Presentaciones sectoriales"),
 ]
 
@@ -72,9 +80,9 @@ def reset_conversation():
 # ── Agente (cacheado — se construye una sola vez por sesión de servidor) ───────
 @st.cache_resource
 def load_agent():
-    embeddings = GoogleGenerativeAIEmbeddings(
-        model=EMBEDDING_MODEL,
-        google_api_key=GEMINI_API_KEY,
+    embeddings = E5MultilingualEmbeddings(
+        model_name=EMBEDDING_MODEL,
+        encode_kwargs={"normalize_embeddings": True},
     )
     vectorstore = Chroma(
         collection_name=COLLECTION_NAME,
@@ -88,7 +96,7 @@ def load_agent():
     llm = ChatGoogleGenerativeAI(
         model=LLM_MODEL,
         temperature=0.3,
-        google_api_key=GEMINI_API_KEY,
+        google_api_key=GOOGLE_API_KEY,
     )
 
     class EstadoAgente(TypedDict):
@@ -162,7 +170,7 @@ with st.sidebar:
     st.markdown("**⚙️ Stack tecnológico**")
     st.caption(
         "- LLM: Gemini 2.5 Flash Lite\n"
-        "- Embeddings: text-embedding-004\n"
+        "- Embeddings: intfloat/multilingual-e5-base\n"
         "- Vector store: ChromaDB (MMR)\n"
         "- Agent: LangGraph + MemorySaver"
     )
@@ -183,8 +191,8 @@ with st.sidebar:
 # ── Área principal ────────────────────────────────────────────────────────────
 st.title("Agente Experto en la Industria Textil y Moda en España")
 st.markdown(
-    "Pregunta sobre **empresas**, **comercio exterior**, **sostenibilidad**, "
-    "**economía circular** o **estrategia sectorial**. El agente mantiene el contexto "
+    "Pregunta sobre **empresas**, **resultados financieros**, **comercio exterior**, "
+    "**sostenibilidad** o **estrategia sectorial**. El agente mantiene el contexto "
     "de la conversación entre preguntas."
 )
 
