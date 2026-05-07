@@ -9,26 +9,19 @@ from typing_extensions import TypedDict
 
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 
 
-# Los modelos E5 requieren prefijos distintos para indexación y búsqueda
-class E5MultilingualEmbeddings(HuggingFaceEmbeddings):
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return super().embed_documents(["passage: " + t for t in texts])
-    def embed_query(self, text: str) -> list[float]:
-        return super().embed_query("query: " + text)
 
 # ── Configuración ─────────────────────────────────────────────────────────────
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 CHROMA_DIR = str(Path(__file__).parent / "chroma_db")
 COLLECTION_NAME = "textil_moda_espana"
-LLM_MODEL = "gemini-2.5-flash-lite"
+LLM_MODEL = "gemma-4-31b-it"
 EMBEDDING_MODEL = "intfloat/multilingual-e5-base"
 
 SYSTEM_PROMPT = """Eres un analista experto en la industria textil y moda en España.
@@ -80,6 +73,16 @@ def reset_conversation():
 # ── Agente (cacheado — se construye una sola vez por sesión de servidor) ───────
 @st.cache_resource
 def load_agent():
+    # Lazy import: torch y sentence-transformers solo se cargan cuando el usuario
+    # envía su primer mensaje, no al arrancar Streamlit (~500 MB de diferencia).
+    from langchain_community.embeddings import HuggingFaceEmbeddings
+
+    class E5MultilingualEmbeddings(HuggingFaceEmbeddings):
+        def embed_documents(self, texts: list[str]) -> list[list[float]]:
+            return super().embed_documents(["passage: " + t for t in texts])
+        def embed_query(self, text: str) -> list[float]:
+            return super().embed_query("query: " + text)
+
     embeddings = E5MultilingualEmbeddings(
         model_name=EMBEDDING_MODEL,
         encode_kwargs={"normalize_embeddings": True},
@@ -110,7 +113,9 @@ def load_agent():
             SystemMessage(content=REFORMULATION_PROMPT),
             HumanMessage(content=ultima),
         ])
-        return {"query_reformulada": resp.content.strip()}
+        c = resp.content
+        query = ("".join(p.get("text", "") if isinstance(p, dict) else str(p) for p in c) if isinstance(c, list) else c).strip()
+        return {"query_reformulada": query}
 
     def nodo_recuperar(estado: EstadoAgente) -> dict:
         docs = retriever.invoke(estado["query_reformulada"])
@@ -169,7 +174,7 @@ with st.sidebar:
 
     st.markdown("**⚙️ Stack tecnológico**")
     st.caption(
-        "- LLM: Gemini 2.5 Flash Lite\n"
+        "- LLM: Gemma 4 31B\n"
         "- Embeddings: intfloat/multilingual-e5-base\n"
         "- Vector store: ChromaDB (MMR)\n"
         "- Agent: LangGraph + MemorySaver"
@@ -272,7 +277,8 @@ if prompt := st.chat_input("Haz una pregunta sobre la industria textil en Españ
                     elif "generar" in chunk:
                         msgs = chunk["generar"].get("mensajes", [])
                         if msgs:
-                            respuesta = msgs[-1].content
+                            c = msgs[-1].content
+                            respuesta = "".join(p.get("text", "") if isinstance(p, dict) else str(p) for p in c) if isinstance(c, list) else c
 
                 status.update(label="✅ Respuesta generada", state="complete", expanded=False)
 

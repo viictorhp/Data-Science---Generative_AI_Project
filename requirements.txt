@@ -1,23 +1,25 @@
-# LLM + Embeddings (Google Gemini)
-langchain>=0.3.0
-langchain-text-splitters>=0.3.0
-langchain-google-genai>=2.0.0
-langchain-community>=0.3.0
-google-generativeai>=0.8.0
+# LLM
+langchain>=1.2.17
+langchain-text-splitters>=1.1.2
+langchain-google-genai>=4.2.2
+langchain-community>=0.4.1
+google-generativeai>=0.8.6
+
+# Embeddings locales (HuggingFace E5)
+sentence-transformers>=3.0.0
 
 # Vector store
-chromadb>=0.5.0
+chromadb>=1.5.9
+langchain-chroma>=0.2.0
 
 # Agent framework
-langgraph>=0.2.0
+langgraph>=1.1.10
 
 # PDF processing
-pypdf>=4.0.0
+pypdf>=6.10.2
 
 # Utilities
-python-dotenv>=1.0.0
-ipywidgets>=8.0.0
-notebook>=7.0.0
+python-dotenv>=1.2.2
 
-# Interfaz web (opcional)
-streamlit>=1.35.0
+# Interfaz web
+streamlit>=1.57.0
