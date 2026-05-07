@@ -182,13 +182,8 @@ with st.sidebar:
     st.divider()
 
     st.markdown("**🎮 Controles**")
-    if st.button("🗑️ Nueva conversación", use_container_width=True, type="primary",
-                 help="Limpia el historial e inicia un hilo nuevo manteniendo el agente cargado"):
-        reset_conversation()
-        st.rerun()
-
-    if st.button("♻️ Recargar agente", use_container_width=True,
-                 help="Fuerza la recarga completa del agente y ChromaDB (útil si regeneraste el índice)"):
+    if st.button("♻️ Nueva conversación", use_container_width=True, type="primary",
+                 help="Limpia el historial e inicia una conversación nueva"):
         st.cache_resource.clear()
         reset_conversation()
         st.rerun()
