@@ -35,7 +35,6 @@ Asistente de inteligencia artificial que responde preguntas sobre la industria t
 | **Agent framework** | LangGraph + `MemorySaver` |
 | **PDF loading** | `PyPDFLoader` (`langchain-community`) |
 | **Interfaz web** | Streamlit |
-| **Gestor de paquetes** | uv |
 
 > **Por qué E5 y no Gemini Embeddings**: se intentó usar `gemini-embedding-001` pero el free tier (100 req/min) generaba errores 429 irrecuperables al indexar 681 chunks. `multilingual-e5-base` corre en local, no tiene cuotas y está entrenado específicamente para tareas de retrieval en múltiples idiomas incluido el español.
 
@@ -46,15 +45,13 @@ Asistente de inteligencia artificial que responde preguntas sobre la industria t
 ### 1. Requisitos previos
 
 - Python 3.13+
-- [`uv`](https://docs.astral.sh/uv/) instalado
-- API key de Google Gemini ([obtener en Google AI Studio](https://aistudio.google.com/app/apikey))
+- API key de Google Gemini
 
 ### 2. Instalación
 
 ```bash
 git clone <url-del-repo>
 cd gemini_agent
-uv sync
 ```
 
 ### 3. Configurar la API key
@@ -67,23 +64,13 @@ GOOGLE_API_KEY=tu_clave_aqui
 
 ### 4. Generar la base de conocimiento vectorial
 
-Ejecutar el notebook completo en orden:
-
-```bash
-uv run jupyter notebook notebooks/agente_textil.ipynb
-```
+Ejecutar el notebook completo en orden
 
 Esto indexa los 4 PDFs en ChromaDB con embeddings E5. Solo es necesario ejecutarlo una vez (o cuando cambien los documentos).
 
-### 5. Lanzar la interfaz web
+### 5. Lanzar la interfaz web (Streamlit Cloud)
 
-```bash
-uv run streamlit run app.py
-```
-
-La app estará disponible en `http://localhost:8501`.
-
----
+[Streamlit Cloud - Agente Textil](https://geminiagent-z9tcmwt4mrmgarz4svyrjk.streamlit.app/)
 
 ## Arquitectura del grafo
 
@@ -155,10 +142,9 @@ Reglas:
 
 ## Dependencias
 
-Gestionadas con `uv` en `pyproject.toml`:
+Gestionadas en `requirements.txt`:
 
-```toml
-[project]
+```
 requires-python = ">=3.13"
 dependencies = [
     "chromadb",               # Vector store
