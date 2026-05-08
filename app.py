@@ -21,7 +21,7 @@ load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 CHROMA_DIR = str(Path(__file__).parent / "chroma_db")
 COLLECTION_NAME = "textil_moda_espana"
-LLM_MODEL = "gemma-4-31b-it"
+LLM_MODEL = "gemini-2.5-flash-lite"
 EMBEDDING_MODEL = "intfloat/multilingual-e5-base"
 
 SYSTEM_PROMPT = """Eres un analista experto en la industria textil y moda en España.
@@ -174,7 +174,7 @@ with st.sidebar:
 
     st.markdown("**⚙️ Stack tecnológico**")
     st.caption(
-        "- LLM: Gemma 4 31B\n"
+        "- LLM: Ggemini 2.5 Flash Lite\n"
         "- Embeddings: intfloat/multilingual-e5-base\n"
         "- Vector store: ChromaDB (MMR)\n"
         "- Agent: LangGraph + MemorySaver"
