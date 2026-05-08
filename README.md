@@ -163,3 +163,23 @@ dependencies = [
     "streamlit",              # Interfaz web
 ]
 ```
+
+---
+
+## Posibles mejoras
+
+**Nodo clasificador de contexto (cortocircuito del grafo)**
+Añadir un nodo inicial `nodo_clasificar` que determine mediante el LLM si la pregunta es relevante para el dominio textil/moda español. Si la respuesta es negativa, el grafo salta directamente a un nodo `nodo_fuera_contexto` que responde de forma amable sin ejecutar ninguna búsqueda RAG. Esto evita llamadas innecesarias a ChromaDB y al pipeline completo cuando el usuario formula preguntas fuera del dominio.
+
+```
+                          ┌─ [reformular] → [recuperar] → [generar] → END
+START → [clasificar] ─────┤
+                          └─ [fuera_contexto] → END
+```
+
+La implementación en LangGraph requiere añadir el campo `en_contexto: bool` al estado y usar `add_conditional_edges` desde el nodo clasificador con una función de enrutamiento que devuelva `"reformular"` o `"fuera_contexto"` según el resultado.
+
+**Otras mejoras posibles**
+- **Reranking**: añadir un paso de reranking (p. ej. con `cross-encoder/ms-marco-MiniLM`) tras la recuperación para reordenar los chunks antes de pasarlos al LLM, mejorando la precisión especialmente con preguntas ambiguas.
+- **Evaluación automática**: implementar un pipeline de evaluación con métricas RAGAS (faithfulness, answer relevancy, context recall) para medir objetivamente la calidad del sistema ante cambios en el retriever o el prompt.
+- **Actualización incremental del índice**: en lugar de reindexar todos los documentos al añadir uno nuevo, implementar una estrategia de actualización incremental en ChromaDB que solo procese los chunks nuevos.

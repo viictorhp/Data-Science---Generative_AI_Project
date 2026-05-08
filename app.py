@@ -207,100 +207,80 @@ if not Path(CHROMA_DIR).exists():
 
 st.divider()
 
-# ── Historial de mensajes ─────────────────────────────────────────────────────
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+# ── Historial de mensajes (contenedor scrollable) ─────────────────────────────
+chat_area = st.container(height=520)
+with chat_area:
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
 
-        if msg["role"] == "assistant":
-            col1, col2 = st.columns(2)
-            sources = msg.get("sources", [])
-            query_ref = msg.get("query_reformulada", "")
-
-            if sources:
-                with col1:
-                    with st.expander(f"📄 {len(sources)} fragmentos consultados"):
-                        for s in sources:
-                            st.markdown(f"- **{s['archivo']}** — p. {s['pagina']}")
-
-            if query_ref:
-                with col2:
-                    with st.expander("🔍 Query reformulada por el agente"):
-                        st.code(query_ref, language=None)
-
-# ── Input y procesamiento ─────────────────────────────────────────────────────
-if prompt := st.chat_input("Haz una pregunta sobre la industria textil en España..."):
-    # Mensaje del usuario
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    # Respuesta del agente
-    with st.chat_message("assistant"):
-        query_reformulada = ""
-        sources = []
-        respuesta = ""
-
-        try:
-            agente = load_agent()
-            config = {"configurable": {"thread_id": st.session_state.thread_id}}
-
-            # Panel de progreso en tiempo real
-            with st.status("Procesando consulta…", expanded=True) as status:
-                st.write("🔄 **Paso 1/3 — Reformulando** la pregunta con terminología sectorial…")
-
-                for chunk in agente.stream(
-                    {"mensajes": [HumanMessage(content=prompt)]},
-                    config=config,
-                    stream_mode="updates",
-                ):
-                    if "reformular" in chunk:
-                        query_reformulada = chunk["reformular"].get("query_reformulada", "")
-                        st.write(f"&nbsp;&nbsp;&nbsp;&nbsp;↳ *{query_reformulada}*")
-                        st.write("📚 **Paso 2/3 — Buscando** en la base de conocimiento vectorial…")
-
-                    elif "recuperar" in chunk:
-                        ctx = chunk["recuperar"].get("contexto", "")
-                        sources = parse_sources(ctx)
-                        docs_unicos = len(set(s["archivo"] for s in sources))
-                        st.write(
-                            f"&nbsp;&nbsp;&nbsp;&nbsp;↳ **{len(sources)} fragmentos** recuperados "
-                            f"de {docs_unicos} documento(s)"
-                        )
-                        st.write("✍️ **Paso 3/3 — Generando** respuesta con Gemini…")
-
-                    elif "generar" in chunk:
-                        msgs = chunk["generar"].get("mensajes", [])
-                        if msgs:
-                            c = msgs[-1].content
-                            respuesta = "".join(p.get("text", "") if isinstance(p, dict) else str(p) for p in c) if isinstance(c, list) else c
-
-                status.update(label="✅ Respuesta generada", state="complete", expanded=False)
-
-            # Respuesta
-            st.markdown(respuesta)
-
-            # Fuentes y query reformulada (en columnas bajo la respuesta)
-            if sources or query_reformulada:
+            if msg["role"] == "assistant":
                 col1, col2 = st.columns(2)
+                sources = msg.get("sources", [])
+                query_ref = msg.get("query_reformulada", "")
+
                 if sources:
                     with col1:
                         with st.expander(f"📄 {len(sources)} fragmentos consultados"):
                             for s in sources:
                                 st.markdown(f"- **{s['archivo']}** — p. {s['pagina']}")
-                if query_reformulada:
+
+                if query_ref:
                     with col2:
                         with st.expander("🔍 Query reformulada por el agente"):
-                            st.code(query_reformulada, language=None)
+                            st.code(query_ref, language=None)
 
-        except Exception as e:
-            st.error(f"Error al consultar el agente: {e}")
-            respuesta = f"[Error: {e}]"
+# ── Input y procesamiento ─────────────────────────────────────────────────────
+if prompt := st.chat_input("Haz una pregunta sobre la industria textil en España..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
 
-        # Guardar en historial
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": respuesta,
-            "sources": sources,
-            "query_reformulada": query_reformulada,
-        })
+    query_reformulada = ""
+    sources = []
+    respuesta = ""
+
+    try:
+        agente = load_agent()
+        config = {"configurable": {"thread_id": st.session_state.thread_id}}
+
+        with st.status("Procesando consulta…", expanded=True) as status:
+            st.write("🔄 **Paso 1/3 — Reformulando** la pregunta con terminología sectorial…")
+
+            for chunk in agente.stream(
+                {"mensajes": [HumanMessage(content=prompt)]},
+                config=config,
+                stream_mode="updates",
+            ):
+                if "reformular" in chunk:
+                    query_reformulada = chunk["reformular"].get("query_reformulada", "")
+                    st.write(f"&nbsp;&nbsp;&nbsp;&nbsp;↳ *{query_reformulada}*")
+                    st.write("📚 **Paso 2/3 — Buscando** en la base de conocimiento vectorial…")
+
+                elif "recuperar" in chunk:
+                    ctx = chunk["recuperar"].get("contexto", "")
+                    sources = parse_sources(ctx)
+                    docs_unicos = len(set(s["archivo"] for s in sources))
+                    st.write(
+                        f"&nbsp;&nbsp;&nbsp;&nbsp;↳ **{len(sources)} fragmentos** recuperados "
+                        f"de {docs_unicos} documento(s)"
+                    )
+                    st.write("✍️ **Paso 3/3 — Generando** respuesta con Gemini…")
+
+                elif "generar" in chunk:
+                    msgs = chunk["generar"].get("mensajes", [])
+                    if msgs:
+                        c = msgs[-1].content
+                        respuesta = "".join(p.get("text", "") if isinstance(p, dict) else str(p) for p in c) if isinstance(c, list) else c
+
+            status.update(label="✅ Respuesta generada", state="complete", expanded=False)
+
+    except Exception as e:
+        st.error(f"Error al consultar el agente: {e}")
+        respuesta = f"[Error: {e}]"
+
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": respuesta,
+        "sources": sources,
+        "query_reformulada": query_reformulada,
+    })
+    st.rerun()
