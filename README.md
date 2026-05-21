@@ -1,185 +1,185 @@
-# Agente Experto en la Industria Textil y Moda en España
+# Expert Agent for the Textile and Fashion Industry in Spain
 
-Asistente de inteligencia artificial que responde preguntas sobre la industria textil y moda en España a partir de una base de conocimiento documental propia. Aplica **Retrieval-Augmented Generation (RAG)** con embeddings locales HuggingFace E5, ChromaDB como vector store, Google Gemini como LLM y LangGraph para orquestar el flujo con memoria de conversación. Incluye interfaz web interactiva en Streamlit.
+Artificial intelligence assistant that answers questions about the textile and fashion industry in Spain from its own documentary knowledge base. Applies **Retrieval-Augmented Generation (RAG)** with local HuggingFace E5 embeddings, ChromaDB as vector store, Google Gemini as LLM, and LangGraph to orchestrate the flow with conversation memory. Includes interactive web interface in Streamlit.
 
 ---
 
-## Dominio elegido
+## Chosen Domain
 
-**Industria textil y moda en España** — sector con gran riqueza documental que permite ejercitar el pipeline RAG con consultas que requieren síntesis entre fuentes heterogéneas:
+**Textile and fashion industry in Spain** — a sector with rich documentary sources that allows exercising the RAG pipeline with queries requiring synthesis across heterogeneous sources:
 
-- 📊 **Análisis económico**: evolución del número de empresas, facturación y empleo del sector
-- 🌍 **Comercio exterior**: balanza comercial, principales mercados de exportación e importación
-- 🏢 **Estrategia empresarial**: resultados financieros, estructura y política de sostenibilidad de Inditex
-- 📋 **Posición europea**: comparativa del sector textil español dentro de la UE
-- 💡 **Tendencias sectoriales**: digitalización, ecommerce y evolución de los subsectores
+- 📊 **Economic analysis**: evolution of the number of companies, revenue, and employment in the sector
+- 🌍 **Foreign trade**: trade balance, main export and import markets
+- 🏢 **Business strategy**: financial results, structure, and sustainability policy of Inditex
+- 📋 **European position**: comparison of the Spanish textile sector within the EU
+- 💡 **Sectoral trends**: digitalization, ecommerce, and evolution of subsectors
 
-### Base de conocimiento — 4 documentos PDF (322 páginas)
+### Knowledge base — 4 PDF documents (322 pages)
 
-| Documento | Contenido |
+| Document | Content |
 |-----------|-----------|
-| `informe-economico-de-la-moda-en-espana-2025.pdf` | Informe económico anual del sector moda en España |
-| `comercio_textil_2024.pdf` | Importaciones, exportaciones y balanza comercial textil |
-| `memoria_anual_inditex_2025.pdf` | Estrategia, sostenibilidad y resultados del Grupo Inditex |
-| `presentaciones_sectoriales_textil.pdf` | Estadísticas y evolución del tejido empresarial textil |
+| `economic-report-fashion-spain-2025.pdf` | Annual economic report of the fashion sector in Spain |
+| `textile-trade-2024.pdf` | Textile imports, exports, and trade balance |
+| `inditex-annual-report-2025.pdf` | Strategy, sustainability, and results of Inditex Group |
+| `sectoral-presentations-textile.pdf` | Statistics and evolution of the textile business ecosystem |
 
 ---
 
-## Stack tecnológico
+## Technology Stack
 
-| Componente | Tecnología |
+| Component | Technology |
 |------------|------------|
 | **LLM** | Google Gemini (`gemini-2.0-flash`) via `langchain-google-genai` |
-| **Embeddings** | `intfloat/multilingual-e5-base` (HuggingFace, local, sin cuotas) |
+| **Embeddings** | `intfloat/multilingual-e5-base` (HuggingFace, local, no quotas) |
 | **Vector store** | ChromaDB via `langchain-chroma` |
 | **Agent framework** | LangGraph + `MemorySaver` |
 | **PDF loading** | `PyPDFLoader` (`langchain-community`) |
-| **Interfaz web** | Streamlit |
+| **Web interface** | Streamlit |
 
-> **Por qué E5 y no Gemini Embeddings**: se intentó usar `gemini-embedding-001` pero el free tier (100 req/min) generaba errores 429 irrecuperables al indexar 681 chunks. `multilingual-e5-base` corre en local, no tiene cuotas y está entrenado específicamente para tareas de retrieval en múltiples idiomas incluido el español.
+> **Why E5 and not Gemini Embeddings**: We attempted to use `gemini-embedding-001` but the free tier (100 req/min) generated unrecoverable 429 errors when indexing 681 chunks. `multilingual-e5-base` runs locally, has no quotas, and is specifically trained for retrieval tasks in multiple languages including Spanish.
 
 ---
 
-## Guía de ejecución
+## Execution Guide
 
-### 1. Requisitos previos
+### 1. Prerequisites
 
 - Python 3.13+
-- API key de Google Gemini
+- Google Gemini API key
 
-### 2. Instalación
+### 2. Installation
 
 ```bash
 git clone <url-del-repo>
 cd gemini_agent
 ```
 
-### 3. Configurar la API key
+### 3. Configure API key
 
-Crear el fichero `.env` en la raíz del proyecto:
-
-```
-GOOGLE_API_KEY=tu_clave_aqui
-```
-
-### 4. Generar la base de conocimiento vectorial
-
-Ejecutar el notebook completo en orden
-
-Esto indexa los 4 PDFs en ChromaDB con embeddings E5. Solo es necesario ejecutarlo una vez (o cuando cambien los documentos).
-
-### 5. Lanzar la interfaz web (Streamlit Cloud)
-
-[Streamlit Cloud - Agente Textil](https://geminiagent-z9tcmwt4mrmgarz4svyrjk.streamlit.app/)
-
-## Arquitectura del grafo
-
-El agente se implementa como un grafo de estados en LangGraph con tres nodos secuenciales:
+Create the `.env` file in the project root:
 
 ```
-START → [nodo_reformular] → [nodo_recuperar] → [nodo_generar] → END
+GOOGLE_API_KEY=your_key_here
 ```
 
-### Nodos
+### 4. Generate the vector knowledge base
 
-**`nodo_reformular`**
-El LLM reescribe la pregunta del usuario expandiéndola con sinónimos y vocabulario específico del sector textil antes de buscar en ChromaDB. Mejora significativamente la recuperación semántica cuando el usuario formula preguntas en lenguaje coloquial.
+Run the complete notebook in order
 
-```
-Entrada → pregunta original del usuario
-Salida  → query_reformulada (enriquecida con vocabulario sectorial)
-```
+This indexes the 4 PDFs in ChromaDB with E5 embeddings. Only needs to be executed once (or when documents change).
 
-**`nodo_recuperar`**
-Busca los fragmentos más relevantes en ChromaDB usando la query reformulada. Utiliza **MMR (Maximal Marginal Relevance)** con `fetch_k=20`, `k=6` y `lambda_mult=0.7` (70% relevancia / 30% diversidad), lo que evita recuperar múltiples fragmentos del mismo párrafo.
+### 5. Launch the web interface (Streamlit Cloud)
 
-```
-Entrada → query_reformulada
-Salida  → contexto (6 chunks formateados con fuente y página)
-```
+[Streamlit Cloud - Textile Agent](https://geminiagent-z9tcmwt4mrmgarz4svyrjk.streamlit.app/)
 
-**`nodo_generar`**
-Llama al LLM con el system prompt, el contexto recuperado y el **historial completo de la conversación**, lo que permite dar respuestas coherentes que hacen referencia a turnos anteriores.
+## Graph Architecture
+
+The agent is implemented as a state graph in LangGraph with three sequential nodes:
 
 ```
-Entrada → system prompt + contexto RAG + historial de mensajes
-Salida  → respuesta del agente
+START → [reformulate_node] → [retrieve_node] → [generate_node] → END
 ```
 
-### Memoria
+### Nodes
 
-Implementada con `MemorySaver` de LangGraph. El campo `mensajes` del estado usa `add_messages` como reducer, acumulando el historial entre turnos mediante `thread_id`. Cada sesión en la app Streamlit tiene su propio `thread_id` generado con `uuid4`.
+**`reformulate_node`**
+The LLM rewrites the user's question by expanding it with synonyms and specific textile sector vocabulary before searching in ChromaDB. Significantly improves semantic retrieval when the user formulates questions in colloquial language.
+
+```
+Input  → original user question
+Output → reformulated_query (enriched with sectoral vocabulary)
+```
+
+**`retrieve_node`**
+Searches for the most relevant fragments in ChromaDB using the reformulated query. Uses **MMR (Maximal Marginal Relevance)** with `fetch_k=20`, `k=6`, and `lambda_mult=0.7` (70% relevance / 30% diversity), which prevents retrieving multiple fragments from the same paragraph.
+
+```
+Input  → reformulated_query
+Output → context (6 chunks formatted with source and page)
+```
+
+**`generate_node`**
+Calls the LLM with the system prompt, the retrieved context, and the **complete conversation history**, allowing coherent responses that reference previous turns.
+
+```
+Input  → system prompt + RAG context + message history
+Output → agent response
+```
+
+### Memory
+
+Implemented with LangGraph's `MemorySaver`. The `messages` field of the state uses `add_messages` as reducer, accumulating history between turns via `thread_id`. Each session in the Streamlit app has its own `thread_id` generated with `uuid4`.
 
 ---
 
-## Justificación del System Prompt
+## System Prompt Justification
 
 ```
-Eres un analista experto en la industria textil y moda en España.
+You are an expert analyst in the textile and fashion industry in Spain.
 
-Tu conocimiento proviene de los documentos que se te proporcionan como contexto en cada turno.
-Respondes siempre en español, con un tono profesional y conciso.
+Your knowledge comes from the documents provided as context in each turn.
+You always respond in Spanish, with a professional and concise tone.
 
-Reglas:
-- Basa tus respuestas en el contexto documental proporcionado.
-- Puedes sintetizar y relacionar información de tus respuestas anteriores en la conversación,
-  siempre que las afirmaciones originales provengan del contexto documental.
-- Si el contexto no contiene información suficiente y no puedes inferirlo del historial, indícalo claramente.
-- No inventes datos, cifras ni estadísticas que no aparezcan en el contexto o en el historial previo.
-- Cuando cites datos numéricos, menciona la fuente si está disponible en el contexto.
+Rules:
+- Base your answers on the provided documentary context.
+- You can synthesize and relate information from your previous responses in the conversation,
+  as long as the original statements come from the documentary context.
+- If the context does not contain sufficient information and you cannot infer it from the history, clearly indicate this.
+- Do not invent data, figures, or statistics that do not appear in the context or previous history.
+- When citing numerical data, mention the source if available in the context.
 ```
 
-| Decisión | Justificación |
+| Decision | Justification |
 |----------|---------------|
-| **Rol de analista experto** | Orienta el tono hacia respuestas estructuradas y profesionales, adecuadas para un dominio técnico-económico. |
-| **"Basa tus respuestas en el contexto documental"** | Ancla el modelo a los documentos indexados y reduce alucinaciones sobre datos y estadísticas sectoriales. |
-| **Síntesis del historial permitida** | Permite respuestas de seguimiento coherentes sin fabricar información nueva. La síntesis solo se permite si la fuente original era documental. |
-| **"Indica claramente si no tienes información"** | El agente admite explícitamente los límites de su base de conocimiento en lugar de inventar respuestas plausibles. |
-| **Citar fuentes cuando estén disponibles** | Permite trazabilidad directa a los documentos originales, especialmente útil con datos numéricos. |
-| **`temperature=0.3`** | Temperatura baja para respuestas consistentes y factuales. Un dominio económico-sectorial requiere reproducibilidad, no creatividad. |
+| **Expert analyst role** | Orients the tone toward structured and professional responses, appropriate for a technical-economic domain. |
+| **"Base your answers on documentary context"** | Anchors the model to indexed documents and reduces hallucinations about sectoral data and statistics. |
+| **History synthesis allowed** | Enables coherent follow-up responses without fabricating new information. Synthesis is only allowed if the original source was documentary. |
+| **"Clearly indicate if you don't have information"** | The agent explicitly admits the limits of its knowledge base instead of inventing plausible answers. |
+| **Cite sources when available** | Allows direct traceability to original documents, especially useful with numerical data. |
+| **`temperature=0.3`** | Low temperature for consistent and factual responses. An economic-sectoral domain requires reproducibility, not creativity. |
 
 ---
 
-## Dependencias
+## Dependencies
 
-Gestionadas en `requirements.txt`:
+Managed in `requirements.txt`:
 
 ```
 requires-python = ">=3.13"
 dependencies = [
     "chromadb",               # Vector store
-    "google-generativeai",    # Listado de modelos Gemini disponibles
-    "ipywidgets",             # Widgets para Jupyter
-    "langchain",              # Framework base LangChain
-    "langchain-chroma",       # Integración ChromaDB (sin deprecation warning)
+    "google-generativeai",    # List of available Gemini models
+    "ipywidgets",             # Widgets for Jupyter
+    "langchain",              # LangChain base framework
+    "langchain-chroma",       # ChromaDB integration (no deprecation warning)
     "langchain-community",    # PyPDFLoader, HuggingFaceEmbeddings
     "langchain-google-genai", # ChatGoogleGenerativeAI (LLM)
     "langchain-text-splitters",
-    "langgraph",              # Orquestación del agente con grafo de estados
+    "langgraph",              # Agent orchestration with state graph
     "notebook",               # Jupyter Notebook
-    "pypdf",                  # Carga de PDFs
-    "python-dotenv",          # Carga de variables de entorno desde .env
-    "sentence-transformers",  # Backend de HuggingFaceEmbeddings
-    "streamlit",              # Interfaz web
+    "pypdf",                  # PDF loading
+    "python-dotenv",          # Load environment variables from .env
+    "sentence-transformers",  # HuggingFaceEmbeddings backend
+    "streamlit",              # Web interface
 ]
 ```
 
 ---
 
-## Posibles mejoras
+## Possible Improvements
 
-**Nodo clasificador de contexto (cortocircuito del grafo)**
-Añadir un nodo inicial `nodo_clasificar` que determine mediante el LLM si la pregunta es relevante para el dominio textil/moda español. Si la respuesta es negativa, el grafo salta directamente a un nodo `nodo_fuera_contexto` que responde de forma amable sin ejecutar ninguna búsqueda RAG. Esto evita llamadas innecesarias a ChromaDB y al pipeline completo cuando el usuario formula preguntas fuera del dominio.
+**Context classifier node (graph short-circuit)**
+Add an initial `classify_node` that uses the LLM to determine whether the question is relevant to the Spanish textile/fashion domain. If the answer is negative, the graph jumps directly to an `out_of_context_node` that responds politely without executing any RAG search. This avoids unnecessary calls to ChromaDB and the complete pipeline when the user formulates questions outside the domain.
 
 ```
-                          ┌─ [reformular] → [recuperar] → [generar] → END
-START → [clasificar] ─────┤
-                          └─ [fuera_contexto] → END
+                          ┌─ [reformulate] → [retrieve] → [generate] → END
+START → [classify] ───────┤
+                          └─ [out_of_context] → END
 ```
 
-La implementación en LangGraph requiere añadir el campo `en_contexto: bool` al estado y usar `add_conditional_edges` desde el nodo clasificador con una función de enrutamiento que devuelva `"reformular"` o `"fuera_contexto"` según el resultado.
+The implementation in LangGraph requires adding the `in_context: bool` field to the state and using `add_conditional_edges` from the classifier node with a routing function that returns `"reformulate"` or `"out_of_context"` based on the result.
 
-**Otras mejoras posibles**
-- **Reranking**: añadir un paso de reranking (p. ej. con `cross-encoder/ms-marco-MiniLM`) tras la recuperación para reordenar los chunks antes de pasarlos al LLM, mejorando la precisión especialmente con preguntas ambiguas.
-- **Evaluación automática**: implementar un pipeline de evaluación con métricas RAGAS (faithfulness, answer relevancy, context recall) para medir objetivamente la calidad del sistema ante cambios en el retriever o el prompt.
-- **Actualización incremental del índice**: en lugar de reindexar todos los documentos al añadir uno nuevo, implementar una estrategia de actualización incremental en ChromaDB que solo procese los chunks nuevos.
+**Other possible improvements**
+- **Reranking**: add a reranking step (e.g., with `cross-encoder/ms-marco-MiniLM`) after retrieval to reorder chunks before passing them to the LLM, improving precision especially with ambiguous questions.
+- **Automated evaluation**: implement an evaluation pipeline with RAGAS metrics (faithfulness, answer relevancy, context recall) to objectively measure system quality when making changes to the retriever or prompt.
+- **Incremental index update**: instead of reindexing all documents when adding a new one, implement an incremental update strategy in ChromaDB that only processes new chunks.
